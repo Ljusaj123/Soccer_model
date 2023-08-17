@@ -1,13 +1,12 @@
 import pandas as pd
 import numpy as np
 import time
-import os
+
 import pickle
 from sklearn.model_selection import cross_val_score
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import accuracy_score
@@ -18,14 +17,16 @@ from sklearn.model_selection import GridSearchCV
 from sklearn.svm import SVC
 
 
-df = pd.read_csv('ft_df.csv')
+df = pd.read_csv('./data/matches.csv')
 
 #dropping columns one wouldn't have before an actual match
 
 cols_to_drop = ['season', 'match_name','date', 'home_team', 'away_team', 'home_score', 'away_score',
-                'h_match_points', 'a_match_points']
+                'h_match_points', 'a_match_points' ]
 
 df.drop( columns = cols_to_drop, inplace = True)
+
+# df = df.drop(df[df.winner == 'DRAW'].index)
 
 
 #filling NAs
@@ -55,29 +56,17 @@ X_test = scaler.fit_transform(X_test)
 
 #creating models variable to iterate through each model and print result
 models = [LogisticRegression(max_iter= 1000, multi_class = 'multinomial'),
-RandomForestClassifier(max_depth=30, n_estimators=30, max_features=3), GradientBoostingClassifier(), KNeighborsClassifier(), SVC(kernel="linear", C=1.5, probability=True)]
+          RandomForestClassifier(max_depth=30, n_estimators=30, max_features=3), 
+          KNeighborsClassifier(n_neighbors = 20), 
+          SVC(kernel="linear", C=0.02, probability=True)]
 
-names = ['Logistic Regression', 'Random Forest', 'Gradient Boost', 'KNN', 'SVC']
+names = ['Logistic Regression', 'Random Forest', 'KNN', 'SVC']
 
 #loop through each model and print train score and elapsed time
 for model, name in zip(models, names):
     start = time.time()
     scores = cross_val_score(model, X_train, y_train ,scoring= 'accuracy', cv=5)
     print(name, ":", "%0.3f, +- %0.3f" % (scores.mean(), scores.std()), " - Elapsed time: ", time.time() - start)
-
-classifier1 = SVC(kernel="linear", C=1.5, probability=True)
-classifier4 = RandomForestClassifier(max_depth=30, n_estimators=30, max_features=3)
-
-# X_test_new = np.ravel(y_train)
-
-# classifier1.fit(X_train, y_train)
-# classifier4.fit(X_train, y_train)
-
-# accuracy1 = classifier1.score(X_test, y_test)
-# accuracy4 = classifier4.score(X_test, y_test)
-
-# print(accuracy1)
-# print(accuracy4)
 
 
 #Creating loop to test which set of features is the best one for Logistic Regression
@@ -86,25 +75,25 @@ acc_results = []
 n_features = []
 
 #best classifier on training data
-clf = LogisticRegression(max_iter = 1000, multi_class = 'multinomial')
+clf = LogisticRegression(max_iter= 1000, multi_class = 'multinomial') ##probaj za sve
 
-for i in range(5, 40):
-    rfe = RFE(estimator = clf, n_features_to_select = i, step=1)
-    rfe.fit(X, y)
-    X_temp = rfe.transform(X)
+# for i in range(5 ,40):
+#     rfe = RFE(estimator = clf, n_features_to_select = i, step=5)
+#     rfe.fit(X, y)
+#     X_temp = rfe.transform(X)
 
-    np.random.seed(101)
+#     np.random.seed(101)
 
-    X_train, X_test, y_train, y_test = train_test_split(X_temp,y, test_size = 0.2)
+#     X_train, X_test, y_train, y_test = train_test_split(X_temp,y, test_size = 0.2)
 
-    X_train = scaler.fit_transform(X_train)
-    X_test = scaler.fit_transform(X_test)
+#     X_train = scaler.fit_transform(X_train)
+#     X_test = scaler.fit_transform(X_test)
 
-    start = time.time()
-    scores = cross_val_score(clf, X_train, y_train ,scoring= 'accuracy', cv=5)
-    print(" Clf result :", "%0.3f, +- %0.3f" % (scores.mean(), scores.std()), 'N_features :', i)
-    acc_results.append(scores.mean())
-    n_features.append(i)
+#     start = time.time()
+#     scores = cross_val_score(clf, X_train, y_train ,scoring= 'accuracy', cv=5)
+#     print(" Clf result :", "%0.3f, +- %0.3f" % (scores.mean(), scores.std()), 'N_features :', i)
+#     acc_results.append(scores.mean())
+#     n_features.append(i)
 
 plt.plot(n_features, acc_results)
 plt.ylabel('Accuracy')
@@ -131,19 +120,6 @@ featured_columns = pd.DataFrame(rfe.support_,
 
 featured_columns = featured_columns[featured_columns.is_in == True].index.tolist()
 
-#column importances for each class
-importances_d = pd.DataFrame(np.exp(rfe.estimator_.coef_[0]),
-                            index = featured_columns,
-                            columns=['coef']).sort_values('coef', ascending = False)
-
-importances_a = pd.DataFrame(np.exp(rfe.estimator_.coef_[1]),
-                            index = featured_columns,
-                            columns=['coef']).sort_values('coef', ascending = False)
-
-importances_h = pd.DataFrame(np.exp(rfe.estimator_.coef_[2]),
-                            index = featured_columns,
-                            columns=['coef']).sort_values('coef', ascending = False)
-
 
 #tuning logistic regression
 parameters = {'C': [0.001, 0.01, 0.1, 1, 10, 100, 1000],
@@ -159,23 +135,25 @@ print(gs.best_score_, gs.best_params_,  time.time() - start)
 rf = RandomForestClassifier()
 rf.fit(X_train, y_train)
 
-gb = GradientBoostingClassifier()
-gb.fit(X_train, y_train)
-
 knn = KNeighborsClassifier()
 knn.fit(X_train, y_train)
+
+svc = SVC(kernel="linear", C=0.02, probability=True)
+svc.fit(X_train, y_train)
+
 
 
 #testing models on unseen data 
 tpred_lr = gs.best_estimator_.predict(X_test)
 tpred_rf = rf.predict(X_test)
-tpred_gb = gb.predict(X_test)
 tpred_knn = knn.predict(X_test)
+svc_pred = svc.predict(X_test)
 
-# print(classification_report(y_test, tpred_lr, digits = 3))
-# print(classification_report(y_test, tpred_rf, digits = 3))
-# print(classification_report(y_test, tpred_gb, digits = 3))
-# print(classification_report(y_test, tpred_knn, digits = 3))
+
+print(classification_report(y_test, tpred_lr, digits = 3))
+print(classification_report(y_test, tpred_rf, digits = 3))
+print(classification_report(y_test, tpred_knn, digits = 3))
+print(classification_report(y_test, svc_pred, digits = 3))
 
 
 
@@ -194,46 +172,58 @@ def get_winning_odd(df):
 test_df = pd.DataFrame(scaler.inverse_transform(X_test),columns =  featured_columns)
 test_df['tpred_lr'] = tpred_lr
 test_df['tpred_rf'] = tpred_rf
-test_df['tpred_gb'] = tpred_gb
 test_df['tpred_knn'] = tpred_knn
+test_df['svc_pred'] = svc_pred
 
 test_df['winner'] = y_test
 test_df['winning_odd'] = test_df.apply(lambda x: get_winning_odd(x), axis = 1)
 
 test_df['lr_profit'] = (test_df.winner == test_df.tpred_lr) * test_df.winning_odd * 100
 test_df['rf_profit'] = (test_df.winner == test_df.tpred_rf) * test_df.winning_odd * 100
-test_df['gb_profit'] = (test_df.winner == test_df.tpred_gb) * test_df.winning_odd * 100
 test_df['knn_profit'] = (test_df.winner == test_df.tpred_knn) * test_df.winning_odd * 100
+test_df['svc_profit'] = (test_df.winner == test_df.svc_pred) * test_df.winning_odd * 100
 
 investment = len(test_df) * 100
 
 lr_return = test_df.lr_profit.sum() - investment
 rf_return = test_df.rf_profit.sum() - investment
-gb_return = test_df.gb_profit.sum() - investment
 knn_return = test_df.knn_profit.sum() - investment
+svc_return = test_df.svc_profit.sum() - investment
 
 profit = (lr_return/investment * 100).round(2)
+profit_rf = (rf_return/investment * 100).round(2)
+profit_knn = (knn_return/investment * 100).round(2)
+profit_svc = (svc_return/investment * 100).round(2)
 
 print(f'''Logistic Regression return: ${lr_return}
 
 Random Forest return: ${rf_return}
 
-Gradient Boost return:  ${gb_return}
-
 KNN return:  ${knn_return} \n
 
+SVC return : ${svc_return}
+
 Logistic Regression model profit percentage : {profit} %
+
+Random Forest profit percentage: ${profit_rf}%
+
+
+%KNN model profit percentage : {profit_knn} %
+
+SVC profit percentage: ${profit_svc}%
 ''')
 
 
-#retraining final model on full data
-gs.best_estimator_.fit(X_transformed, y)
+# #retraining final model on full data
+# gs.best_estimator_.fit(X_transformed, y)
 
-#Saving model and features
-model_data = pd.Series( {
-    'model': gs,
-    'features': featured_columns
-} )
+# #Saving model and features
+# model_data = pd.Series( {
+#     'model': gs,
+#     'features': featured_columns
+# } )
 
-#saving model
-pickle.dump(model_data, open(os.path.join(MODEL_DIR, "lr_model.pkl"), 'wb'))
+# #saving model
+# # pickle.dump(("model.pkl"), 'wb')
+
+

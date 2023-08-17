@@ -1,70 +1,15 @@
-import os
 import numpy as np
 import pandas as pd
+import time
 
-matches_df = pd.read_csv('matches.csv')
-
-#checking column types and null values
-# print(matches_df.info())
-# print(matches_df.isna().sum())
-
-#setting season to be the start year of a season
-matches_df['season'] = matches_df.season.str.split('/').str[0] # 2020/ 2021 -> 2020
+start = time.time()
 
 
-#creating home and away score
-matches_df[['home_team', 'away_team']] = matches_df.match_name.str.split(' - ', expand = True) # Arsenal - Brighton -> Arsenal, Brighton
-
-
-#creating home and away score
-matches_df[['home_score', 'away_score']] = matches_df.result.str.split(':', expand = True) # 2:0 -> 2,0
-
-#creating winner column
-matches_df['winner'] = np.where(matches_df.home_score > matches_df.away_score, 'HOME_TEAM', np.where(matches_df.away_score > matches_df.home_score, 'AWAY_TEAM', 'DRAW'))
-
-#droping result column
-matches_df.drop(columns = 'result', inplace = True)
-
-
-#turning columns into integers
-matches_df['season'] = matches_df['season'].astype(int)
-matches_df['home_score'] = matches_df['home_score'].astype(int)
-matches_df['away_score'] = matches_df['away_score'].astype(int)
-
-#cleaning up columns with missing number data
-matches_df['a_odd'] = matches_df['a_odd'].str.replace('-', '0')
-matches_df['d_odd'] = matches_df['d_odd'].str.replace('-', '0')
-matches_df['h_odd'] = matches_df['h_odd'].str.replace('-', '0')
-
-#turning columns into floats
-matches_df['a_odd'] = matches_df['a_odd'].astype(float)
-matches_df['d_odd'] = matches_df['d_odd'].astype(float)
-matches_df['h_odd'] = matches_df['h_odd'].astype(float)
-
+matches_df = pd.read_csv('./data/data_cleaned.csv')
 
 #changing from date to datetime
 matches_df['date'] = pd.to_datetime(matches_df.date)
 
-# print(matches_df.info())
-# print(matches_df.isna().sum())
-
-#home team points made in each match
-matches_df['h_match_points'] = np.where(matches_df['winner'] == 'HOME_TEAM', 2 , np.where(matches_df['winner'] == 'DRAW',1, 0))
-
-#away team points made in each match
-matches_df['a_match_points'] = np.where(matches_df['winner'] == 'AWAY_TEAM', 2 , np.where(matches_df['winner'] == 'DRAW',1, 0))
-
-#changing columns order
-cols_order = ['season', 'date', 'match_name', 'home_team', 'away_team', 'winner', 'home_score', 'away_score',
-                'h_odd', 'd_odd', 'a_odd', 'h_match_points', 'a_match_points']
-
-matches_df = matches_df[cols_order]
-
-matches_df.head()
-
-
-#################################################
-#################################################
 def get_rank(x, team, delta_year):
     full_season_df = matches_df[(matches_df.season == (x.season - delta_year))]
 
@@ -93,9 +38,12 @@ def get_rank(x, team, delta_year):
 
     #this is function that ranks teams by points they have made
     rank_df['rank'] = rank_df.points.rank(method = 'first', ascending = False).astype(int)
-
-    team_rank = rank_df[rank_df.team == team].min()['rank']# getting rank for the team we sand into this function, still dont know why min() is there ?????
+        
+    # getting rank for the team we send into this function
+    team_rank = rank_df[rank_df.team == team].min()['rank']
+        
     return team_rank
+
 
 def get_match_stats(x, team):
     
@@ -157,20 +105,14 @@ def get_match_stats(x, team):
     total_draws = home_draws + away_draws
     total_losses = home_losses + away_losses
 
-    #get streaks of wins?
+    #get streaks of wins
     full_table['start_of_streak'] = full_table.points.ne(full_table.points.shift())
     full_table['streak_id'] = full_table['start_of_streak'].cumsum()
     full_table['streak_counter'] = full_table.groupby('streak_id').cumcount() + 1
 
-
-    #make exponentially weighted average
-    full_table['w_avg_points'] = full_table.points.ewm(span=3, adjust=False).mean()
-    full_table['w_avg_goals'] = full_table.goals.ewm(span=3, adjust=False).mean()
-    full_table['w_avg_goals_sf'] = full_table.goals_sf.ewm(span=3, adjust=False).mean()
-
     streak_table = full_table[full_table.date == full_table.date.max()]
 
-    if streak_table.points.min() == 3:
+    if streak_table.points.min() == 2:
         win_streak = streak_table.streak_counter.sum()
         loss_streak = 0
         draw_streak = 0
@@ -184,9 +126,6 @@ def get_match_stats(x, team):
         draw_streak = streak_table.streak_counter.sum()
     
 
-
-
-    #NEZZ CEMU OVO
     #get last 3 games
     full_table_delta = full_table[full_table.date.isin(full_table.date[-3:])]
 
@@ -198,22 +137,16 @@ def get_match_stats(x, team):
     total_l_goals = (home_goals + away_goals)/3
     total_l_goals_sf = (home_goals_sf + away_goals)/3
 
-
-    #ZASTO 1 SAMO
-    total_l_w_avg_points = full_table[full_table.date.isin(full_table.date[-1:])].w_avg_goals.sum()
-    total_l_w_avg_goals = full_table[full_table.date.isin(full_table.date[-1:])].w_avg_goals.sum()
-    total_l_w_avg_goals_sf = full_table[full_table.date.isin(full_table.date[-1:])].w_avg_goals_sf.sum()
-
-    return total_points, total_l_points, total_l_w_avg_points, total_goals, total_l_goals, total_l_w_avg_goals, total_goals_sf, total_l_goals_sf, total_l_w_avg_goals_sf, total_wins, total_draws, total_losses, win_streak, loss_streak, draw_streak
+    return total_points, total_l_points, total_goals, total_l_goals, total_goals_sf, total_l_goals_sf, total_wins, total_draws, total_losses, win_streak, loss_streak, draw_streak
 
 def get_days_ls_match(x, team):
 
     #filtering the last game of the team and getting date
     last_date = matches_df[(matches_df.season == x.season) & (matches_df.date < x.date) & (matches_df.match_name.str.contains(team))].date.max()
-
+        
     #calculating the number of days since the last match
     days = (x.date - last_date)/np.timedelta64(1,'D')
-
+    
     return days
 
 def get_last_match_winner(x):
@@ -228,18 +161,6 @@ def get_last_match_winner(x):
                  np.where(temp_df['winner'] == 'AWAY_TEAM', 'AWAY_TEAM', 'HOME_TEAM'))   #if the result of last match was home win or away win
     
         result = result[0] #getting just the string
-             
-    # if len(temp_df) == 0: # if there was not match between two teams
-    #     result = None
-    # elif temp_df.winner.all() == 'DRAW':
-    #     result = 'DRAW'
-    # elif temp_df.home_team.all() == x.home_team:
-    #     result = temp_df.winner.all()
-    # else:
-    #     if temp_df.winner.all() == 'HOME_TEAM':
-    #         result = 'HOME_TEAM'
-    #     else:
-    #         result = 'AWAY_TEAM'
     
     return result
 
@@ -250,31 +171,24 @@ def create_main_cols(x, team): #x is every row and team is every row home team o
     last_year_team_rank = get_rank(x, team, 1)
 
     # #get main match stats
-    total_points, total_l_points, total_l_w_avg_points, total_goals, total_l_goals, total_l_w_avg_goals, total_goals_sf, total_l_goals_sf, total_l_w_avg_goals_sf, total_wins, total_draws, total_losses, win_streak, loss_streak, draw_streak = get_match_stats(x, team)
+    total_points, total_l_points, total_goals, total_l_goals, total_goals_sf, total_l_goals_sf, total_wins, total_draws, total_losses, win_streak, loss_streak, draw_streak = get_match_stats(x, team)
 
     # #get days since the last match
     days = get_days_ls_match(x, team)    
 
-    return team_rank, last_year_team_rank, days, total_points, total_l_points, total_l_w_avg_points, total_goals, total_l_goals, total_l_w_avg_goals, total_goals_sf, total_l_goals_sf, total_l_w_avg_goals_sf, total_wins, total_draws, total_losses, win_streak, loss_streak, draw_streak
+    return team_rank, last_year_team_rank, days, total_points, total_l_points, total_goals, total_l_goals, total_goals_sf, total_l_goals_sf, total_wins, total_draws, total_losses, win_streak, loss_streak, draw_streak
 
 ######################################
 ######################################
 
 
-cols = ['_rank', '_ls_rank', '_days_ls_match', '_points',
-        '_l_points', '_l_wavg_points', '_goals', '_l_goals', 
-        '_l_wavg_goals', '_goals_sf', '_l_goals_sf', 
-        '_l_wavg_goals_sf','_wins', '_draws', '_losses', 
+cols = ['_rank', '_ls_rank', '_days_ls_match', 
+        '_points', '_l_points', '_goals', '_l_goals'
+        , '_goals_sf', '_l_goals_sf', '_wins', '_draws', '_losses', 
         '_win_streak', '_loss_streak', '_draw_streak']
 
 home_team_cols = ['ht' + col for col in cols]
 away_team_cols = ['at' + col for col in cols]
-
-#get full season of 2020
-current_full_season_df = matches_df[(matches_df['season'] == 2020)]  #full season
-
-#get full season of 2019
-last_year_full_season_df = matches_df[(matches_df.season == 2019)]  #full season
 
 #calculates statistics for home team
 matches_df[home_team_cols] = pd.DataFrame(
@@ -289,12 +203,10 @@ matches_df[away_team_cols] = pd.DataFrame(
 #result between last game of the teams
 matches_df['ls_winner'] = matches_df.apply(lambda x: get_last_match_winner(x), axis = 1)
 
-#droping columns
-# cols_to_drop = ['season', 'match_name','date', 'home_team', 'away_team', 'home_score', 'away_score',
-#                 'h_match_points', 'a_match_points']
+#filling NAs
+matches_df.fillna(-33, inplace = True)
 
-# matches_df.drop( columns = cols_to_drop, inplace = True)
+print("Elapsed time:", time.time() - start)
 
 #saving data
-matches_df.to_csv('ft_df.csv', index = False)
-
+matches_df.to_csv('./data/matches.csv', index = False)
