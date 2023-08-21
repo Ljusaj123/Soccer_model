@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import pickle
 
 
 matches_df = pd.read_csv('./data/matches.csv')
@@ -21,4 +22,8 @@ matches_df[corr_cols + ['winner_h']].corr()['winner_h'].sort_values(ascending = 
 matches_df[corr_cols + ['winner_a']].corr()['winner_a'].sort_values(ascending = False).reset_index()
 
 matches_df[corr_cols + ['winner_d']].corr()['winner_d'].sort_values(ascending = False).reset_index()
+
+model = pickle.load(open("chatbot_model2.h5", 'rb'))
+
+print(model['features'])
 

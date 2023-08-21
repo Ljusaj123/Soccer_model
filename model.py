@@ -95,14 +95,14 @@ clf = LogisticRegression(max_iter= 1000, multi_class = 'multinomial') ##probaj z
 #     acc_results.append(scores.mean())
 #     n_features.append(i)
 
-plt.plot(n_features, acc_results)
-plt.ylabel('Accuracy')
-plt.xlabel('N features')
-plt.show()
+# plt.plot(n_features, acc_results)
+# plt.ylabel('Accuracy')
+# plt.xlabel('N features')
+# plt.show()
 
 
 #getting the best 13 features from RFE
-rfe = RFE(estimator = clf, n_features_to_select = 13, step=1)
+rfe = RFE(estimator = clf, n_features_to_select = 15, step=1)
 rfe.fit(X, y)
 X_transformed = rfe.transform(X)
 
@@ -148,7 +148,7 @@ tpred_lr = gs.best_estimator_.predict(X_test)
 tpred_rf = rf.predict(X_test)
 tpred_knn = knn.predict(X_test)
 svc_pred = svc.predict(X_test)
-
+print(len(y_test))
 
 print(classification_report(y_test, tpred_lr, digits = 3))
 print(classification_report(y_test, tpred_rf, digits = 3))
@@ -214,16 +214,59 @@ SVC profit percentage: ${profit_svc}%
 ''')
 
 
-# #retraining final model on full data
-# gs.best_estimator_.fit(X_transformed, y)
+#retraining final model on full data
+gs.best_estimator_.fit(X_transformed, y)
 
-# #Saving model and features
-# model_data = pd.Series( {
-#     'model': gs,
-#     'features': featured_columns
-# } )
+#Saving model and features
+model_data = pd.Series( {
+    'model': gs,
+    'features': featured_columns
+} )
 
-# #saving model
-# # pickle.dump(("model.pkl"), 'wb')
+pickle.dump(model_data, open("chatbot_model2.h5", 'wb'))
+
+
+
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, classification_report
+cm = confusion_matrix(y_test, tpred_knn, labels= [0,1,2])
+cmd_obj = ConfusionMatrixDisplay(cm)
+cmd_obj.plot()
+cmd_obj.ax_.set(
+                title='Matrica konfuzije',
+                xlabel='Predviđene oznake',
+                ylabel='Točne oznake',
+                )
+plt.show()
+
+
+import matplotlib.pyplot as plt
+from sklearn.metrics import precision_recall_fscore_support
+import seaborn as sns
+def plot_classification_report(y_tru, y_prd, figsize=(10, 10), ax=None):
+
+    plt.figure(figsize=figsize)
+
+
+    xticks = ['precision', 'recall', 'f1-score', 'support']
+    yticks = [0,1,2,"avg"] 
+
+    rep = np.array(precision_recall_fscore_support(y_tru, y_prd, zero_division="warn")).T
+    avg = np.mean(rep, axis=0)
+    avg[-1] = np.sum(rep[:, -1])
+    rep = np.insert(rep, rep.shape[0], avg, axis=0)
+
+    sns.heatmap(rep,
+                cmap='twilight',
+                annot=True,
+                cbar=True,
+                xticklabels=xticks,
+                yticklabels=yticks,
+                linewidths=.5,
+                ax=ax,
+                vmin=0.1,
+                vmax=1)
+plot_classification_report(y_test, svc_pred)
+
+plt.show()
 
 
