@@ -9,7 +9,6 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.preprocessing import MinMaxScaler
-from sklearn.metrics import accuracy_score
 from sklearn.metrics import classification_report
 from sklearn.feature_selection import RFE
 import matplotlib.pyplot as plt
@@ -77,28 +76,28 @@ n_features = []
 #best classifier on training data
 clf = LogisticRegression(max_iter= 1000, multi_class = 'multinomial') ##probaj za sve
 
-# for i in range(5 ,40):
-#     rfe = RFE(estimator = clf, n_features_to_select = i, step=5)
-#     rfe.fit(X, y)
-#     X_temp = rfe.transform(X)
+for i in range(5 ,40):
+    rfe = RFE(estimator = clf, n_features_to_select = i, step=5)
+    rfe.fit(X, y)
+    X_temp = rfe.transform(X)
 
-#     np.random.seed(101)
+    np.random.seed(101)
 
-#     X_train, X_test, y_train, y_test = train_test_split(X_temp,y, test_size = 0.2)
+    X_train, X_test, y_train, y_test = train_test_split(X_temp,y, test_size = 0.2)
 
-#     X_train = scaler.fit_transform(X_train)
-#     X_test = scaler.fit_transform(X_test)
+    X_train = scaler.fit_transform(X_train)
+    X_test = scaler.fit_transform(X_test)
 
-#     start = time.time()
-#     scores = cross_val_score(clf, X_train, y_train ,scoring= 'accuracy', cv=5)
-#     print(" Clf result :", "%0.3f, +- %0.3f" % (scores.mean(), scores.std()), 'N_features :', i)
-#     acc_results.append(scores.mean())
-#     n_features.append(i)
+    start = time.time()
+    scores = cross_val_score(clf, X_train, y_train ,scoring= 'accuracy', cv=5)
+    print(" Clf result :", "%0.3f, +- %0.3f" % (scores.mean(), scores.std()), 'N_features :', i)
+    acc_results.append(scores.mean())
+    n_features.append(i)
 
-# plt.plot(n_features, acc_results)
-# plt.ylabel('Accuracy')
-# plt.xlabel('N features')
-# plt.show()
+plt.plot(n_features, acc_results)
+plt.ylabel('Accuracy')
+plt.xlabel('N features')
+plt.show()
 
 
 #getting the best 13 features from RFE
@@ -148,7 +147,8 @@ tpred_lr = gs.best_estimator_.predict(X_test)
 tpred_rf = rf.predict(X_test)
 tpred_knn = knn.predict(X_test)
 svc_pred = svc.predict(X_test)
-print(len(y_test))
+
+test_models = [tpred_lr, tpred_rf, tpred_knn, svc_pred]
 
 print(classification_report(y_test, tpred_lr, digits = 3))
 print(classification_report(y_test, tpred_rf, digits = 3))
@@ -161,7 +161,7 @@ print(classification_report(y_test, svc_pred, digits = 3))
 def get_winning_odd(df):
     if df.winner == 2:
         result = df.h_odd
-    elif df.winner == 1:
+    elif df.winner == 0:
         result = df.a_odd
     else:
         result = df.d_odd
@@ -226,47 +226,17 @@ model_data = pd.Series( {
 pickle.dump(model_data, open("chatbot_model2.h5", 'wb'))
 
 
-
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, classification_report
-cm = confusion_matrix(y_test, tpred_knn, labels= [0,1,2])
-cmd_obj = ConfusionMatrixDisplay(cm)
-cmd_obj.plot()
-cmd_obj.ax_.set(
-                title='Matrica konfuzije',
+
+for model, name in zip(test_models, names):
+
+    cm = confusion_matrix(y_test, model, labels= [0,1,2])
+    cmd_obj = ConfusionMatrixDisplay(cm)
+    cmd_obj.plot()
+    cmd_obj.ax_.set(
+                title=f'Matrica konfuzije {name}',
                 xlabel='Predviđene oznake',
-                ylabel='Točne oznake',
+                ylabel='Točne oznake',  
                 )
-plt.show()
-
-
-import matplotlib.pyplot as plt
-from sklearn.metrics import precision_recall_fscore_support
-import seaborn as sns
-def plot_classification_report(y_tru, y_prd, figsize=(10, 10), ax=None):
-
-    plt.figure(figsize=figsize)
-
-
-    xticks = ['precision', 'recall', 'f1-score', 'support']
-    yticks = [0,1,2,"avg"] 
-
-    rep = np.array(precision_recall_fscore_support(y_tru, y_prd, zero_division="warn")).T
-    avg = np.mean(rep, axis=0)
-    avg[-1] = np.sum(rep[:, -1])
-    rep = np.insert(rep, rep.shape[0], avg, axis=0)
-
-    sns.heatmap(rep,
-                cmap='twilight',
-                annot=True,
-                cbar=True,
-                xticklabels=xticks,
-                yticklabels=yticks,
-                linewidths=.5,
-                ax=ax,
-                vmin=0.1,
-                vmax=1)
-plot_classification_report(y_test, svc_pred)
-
-plt.show()
-
+    plt.show()
 
