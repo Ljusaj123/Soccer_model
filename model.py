@@ -100,7 +100,7 @@ plt.xlabel('N features')
 plt.show()
 
 
-#getting the best 13 features from RFE
+#getting the best 15 features from RFE
 rfe = RFE(estimator = clf, n_features_to_select = 15, step=1)
 rfe.fit(X, y)
 X_transformed = rfe.transform(X)
@@ -223,7 +223,7 @@ model_data = pd.Series( {
     'features': featured_columns
 } )
 
-pickle.dump(model_data, open("chatbot_model2.h5", 'wb'))
+pickle.dump(model_data, open("soccer_model.h5", 'wb'))
 
 
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, classification_report
